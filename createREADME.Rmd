@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 rmarkdown::render(
-  input="Vignette.Rmd",
+  input="README.Rmd",
   output_format = "github_document",
   output_file = "README.md",
   runtime = "static",
