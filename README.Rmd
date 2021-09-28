@@ -21,7 +21,7 @@ To use the functions for interacting with the NHL API, I used the following pack
 - [`tidyverse`](https://www.tidyverse.org/): tons of useful features for data manipulation and visualization
 - [`jsonlite`](https://cran.r-project.org/web/packages/jsonlite/): API interaction
 
-```{r echo=FALSE, warning=FALSE, message=FALSE}
+```{r include=FALSE, warning=FALSE, message=FALSE}
 # Load in the packages.
 library(tidyverse)
 library(jsonlite)
