@@ -34,16 +34,6 @@ library(httr)
 
 Below are functions I have created to help interact with the [NASA APIs](https://api.nasa.gov/index.html). These APIs provide insights, images, and meaningful information collected by NASA's various resources. 
 
-## `parseData`
-
-This functions helps parse the data from the specified API to make it easier to look at the structure of the object we are retrieving. 
-
-```{r}
-parseData <- function(data) {
-  parsed <- data$content %>% rawToChar() %>% fromJSON()
-return(str(parsed, max.level = 1))
-}
-```
 
 ## `changeToDF`
 
@@ -57,84 +47,94 @@ changeToDF <- function(x) {
 
 ## `CME.Analysis`
 
-This function takes data from the Coronal Mass Ejection (CME) Analysis endpoint. This function selects the type, longitude, latitude, and speed variables. Then, it filters by the latitude variable being greater than 0, which means the data is from northern hemisphere. You can change this filter to less than for southern hemisphere data, change latitude to longitude for western hemisphere data if its less than and eastern hemisphere data if its greater than 0.
+This function takes data from the Coronal Mass Ejection (CME) Analysis endpoint. This function selects the type, longitude, latitude, and speed variables. Then, it filters by the type variable. A user can choose what type they are searching for and the function will return that type's longitude, latitude, and speed.
 
 ```{r}
 #start the function
-CME.Analysis <- function(data) {
+CME.Analysis <- function(x) {
 #get data from CME Analysis API
 dataCME <- GET("https://api.nasa.gov/DONKI/CME?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd&api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM&feedtype=json&ver=1.0")
 #parse the data
 parsedCME <- dataCME$content %>% rawToChar() %>% fromJSON()
-str(parsedCME, max.level = 1)
   #change the list to a data frame
-dfCME <- changeToDF(data)
+dfCME <- changeToDF(parsedCME$cmeAnalyses)
 #select and filter the values you want for the data frame
-  dfCME %>% filter(latitude > 0) %>% select(type, longitude, latitude, speed)
+  dfCME %>% filter(type == x) %>% select(type, longitude, latitude, speed)
 }
-CME.Analysis(parsedCME$cmeAnalyses)
+
+#example
+CME.Analysis("C")
 ```
 
 # 'Speed.Analysis`
 
-This function takes data from the CME API and groups the data by the speed of the coronal mass ejection. I split the categories of speed into low medium and high, but this can be customized to any speed categories and can be given any name of choice.
+This function takes data from the CME API and groups the data by the speed of the coronal mass ejection. I split the categories of speed into low medium and high, and the values for the different categories of speed can be customized to whichever speeds the user wants.
 
 ```{r}
 #start the function
-Speed.Analysis <- function(data) {
+Speed.Analysis <- function(x, y) {
+#get data from CME Analysis API
+dataCME <- GET("https://api.nasa.gov/DONKI/CME?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd&api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM&feedtype=json&ver=1.0")
+#parse the data
+parsedCME <- dataCME$content %>% rawToChar() %>% fromJSON()
 #change the list to a data frame
-speed.df <- changeToDF(data)
+speed.df <- changeToDF(parsedCME$cmeAnalyses)
 #select the variables you want and add a new variable "speedPace"
-speed.df %>% mutate(speedPace = if_else(speed >= 550, "High", 
-    if_else(speed >= 400, "Medium", "Low"))) %>% group_by(speedPace) %>% select(speedPace, type, latitude, longitude, halfAngle, speed)
+speed.df %>% mutate(speedPace = if_else(speed >= x, "High", 
+    if_else(speed >= y, "Medium", "Low"))) %>% group_by(speedPace) %>% select(speedPace, type, latitude, longitude, halfAngle, speed)
 }
-Speed.Analysis(parsedCME$cmeAnalyses)
+
+#example
+Speed.Analysis(500, 400)
 ```
 
 # `solarFlare`
 
-This function grabs data from the solar flare (FLR) endpoint and returns information about the flareID, the source location, the class type, and the region number. It is grouped by the flares Id, and I also customized it to where the source location is arranged in an order where the locations that are south are first and the locations that are north are after. This customization can be easily changed to from North to South.
+This function grabs data from the solar flare (FLR) endpoint and returns information about the flareID, the source location, the class type, and the region number. Even though the original data went by the variable names above, this function lets you use whichever names you want for the columns with a being the first column, b being the second column, etc.
 
 ```{r}
 #start the function
-solarFlare <- function(data) {
+solarFlare <- function(a, b, c, d) {
 #grab data from the solar flare API
 dataFLR <- GET("https://api.nasa.gov/DONKI/FLR?startDate=2000-01-01&endDate=2020-01-01&api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM")
 #parse the data
 parsedFLR <- dataFLR$content %>% rawToChar() %>% fromJSON()
-str(parsedFLR, max.level = 1)
 #combine variables in the data
 FLR <- cbind(parsedFLR$flrID, parsedFLR$sourceLocation, parsedFLR$activeRegionNum, parsedFLR$classType)
 #make the data into a data frame
 FLRdf <- as_tibble(FLR)
 #change the column names
-colnames(FLRdf) <- c("flrID","sourceLocation", "RegionNum", "classType")
-FLRdf %>% arrange(desc(sourceLocation)) %>% group_by(flrID) %>% select(flrID, sourceLocation, RegionNum, classType)
+colnames(FLRdf) <- c(a, b, c, d)
+FLRdf %>% select(everything())
 }
-solarFlare(FLR)
+
+#example
+solarFlare("flrID","sourceLocation", "RegionNum", "classType")
 ```
 
 # `hazardousAsteroid`
 
-This function takes data from the Asteroids - NeoWs API and returns data about charted asteroids. I created a function that returned the average absolute magnitude value of the asteroid when the asteroid was and was not potentially hazardous. You can change what variable's mean you are trying to find and see how the numbers differ when the asteroid is and is not hazardous.
+This function takes data from the Asteroids - NeoWs API and returns data about charted asteroids. This function allows you to find whichever summary statistic you want, whether it's the mean, median, standard deiation, etc., for the "absolute_magnitude_h" variable when "is_potentially_hazardous" equals true or false. 
 
 ```{r}
 #start the function
-hazardousAsteroid <- function(data) {
+hazardousAsteroid <- function(stat) {
 #grab data from the Asteroids API
 dataAsteroid <- GET("https://api.nasa.gov/neo/rest/v1/neo/browse?api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM") 
 #parse the data
 parsedAsteroid <- dataAsteroid$content %>% rawToChar() %>% fromJSON()
-str(parsedAsteroid, max.level = 1)
 #grab information from the near_earth_objects data frame
 Asteroid <- parsedAsteroid$near_earth_objects
 #calculate mean magnitude when the asteroid is and is not hazardous
-meanMagnitude <- aggregate(Asteroid$absolute_magnitude_h, list(Asteroid$is_potentially_hazardous_asteroid), FUN=mean)
+Magnitude <- aggregate(Asteroid$absolute_magnitude_h, list(Asteroid$is_potentially_hazardous_asteroid), FUN=stat)
+Magnitude <- as_tibble(Magnitude)
 #create column names
-colnames(meanMagnitude) <- c("is_potentially_hazardous_asteriod", "absolute_magnitude_h")
-return(meanMagnitude)
+colnames(Magnitude) <- c("is_potentially_hazardous_asteriod", "absolute_magnitude_h")
+return(Magnitude)
 }
-hazardousAsteroid(parsedAsteroid$near_earth_objects)
+
+#example
+hazardousAsteroid(mean)
 ```
 
 # `findName`
@@ -143,8 +143,19 @@ This function takes information from the Asteroids API. In this function you put
 
 ```{r}
 findName <- function(x) {
-  Asteroid %>% filter(name_limited == x) %>% select(name_limited, id, designation, absolute_magnitude_h, is_potentially_hazardous_asteroid)
+  #grab data from the Asteroids API
+dataAsteroid <- GET("https://api.nasa.gov/neo/rest/v1/neo/browse?api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM") 
+#parse the data
+parsedAsteroid <- dataAsteroid$content %>% rawToChar() %>% fromJSON()
+#grab information from the near_earth_objects data frame
+Asteroid <- parsedAsteroid$near_earth_objects
+#make the output a tibble
+Asteroid <- as_tibble(Asteroid)
+#select the variables you want outputted and filter by the name of the asteroid
+Asteroid %>% filter(name_limited == x) %>% select(name_limited, id, designation, absolute_magnitude_h, is_potentially_hazardous_asteroid)
 }
+
+#example
 findName("Eros")
 ```
 
