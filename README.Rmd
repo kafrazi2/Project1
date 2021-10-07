@@ -21,19 +21,21 @@ To use the functions for interacting with the NASA API, I used the following pac
 - [`tidyverse`](https://www.tidyverse.org/): useful features for data science
 - [`jsonlite`](https://cran.r-project.org/web/packages/jsonlite/): API interaction
 - [`httr`](https://cran.r-project.org/web/packages/httr/index.html): tools for dealing with URLs and HTTP
+- [`knitr`](https://cran.r-project.org/web/packages/knitr/index.html): a markdown friendly way to display tables
 
 ```{r echo = TRUE, eval= TRUE, warning=FALSE, message=FALSE}
 # Load in the packages.
 library(tidyverse)
 library(jsonlite)
 library(httr)
+library(knitr)
 ```
+
 
 
 # API Interaction Functions
 
 Below are functions I have created to help interact with the [NASA APIs](https://api.nasa.gov/index.html). These APIs provide insights, images, and meaningful information collected by NASA's various resources. 
-
 
 ## `changeToDF`
 
@@ -45,13 +47,13 @@ changeToDF <- function(x) {
 }
 ```
 
-## `CME.Analysis`
+## `cmeAnalysis`
 
 This function takes data from the Coronal Mass Ejection (CME) Analysis endpoint. This function selects the type, longitude, latitude, and speed variables. Then, it filters by the type variable. A user can choose what type they are searching for and the function will return that type's longitude, latitude, and speed.
 
 ```{r}
 #start the function
-CME.Analysis <- function(x) {
+cmeAnalysis <- function(x) {
 #get data from CME Analysis API
 dataCME <- GET("https://api.nasa.gov/DONKI/CME?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd&api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM&feedtype=json&ver=1.0")
 #parse the data
@@ -63,16 +65,16 @@ dfCME <- changeToDF(parsedCME$cmeAnalyses)
 }
 
 #example
-CME.Analysis("C")
+cmeAnalysis("C")
 ```
 
-# `Speed.Analysis`
+## `speedAnalysis`
 
 This function takes data from the CME API and groups the data by the speed of the coronal mass ejection. I split the categories of speed into low medium and high, and the values for the different categories of speed can be customized to whichever speeds the user wants.
 
 ```{r}
 #start the function
-Speed.Analysis <- function(x, y) {
+speedAnalysis <- function(x, y) {
 #get data from CME Analysis API
 dataCME <- GET("https://api.nasa.gov/DONKI/CME?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd&api_key=b7Y6xwkXiwoOc5RRa38biqLuuhcwzC2MoGZ70ecM&feedtype=json&ver=1.0")
 #parse the data
@@ -85,10 +87,10 @@ speed.df %>% mutate(speedPace = if_else(speed >= x, "High",
 }
 
 #example
-Speed.Analysis(500, 400)
+speedAnalysis(500, 400)
 ```
 
-# `solarFlare`
+## `solarFlare`
 
 This function grabs data from the solar flare (FLR) endpoint and returns information about the flareID, the source location, the class type, and the region number. Even though the original data went by the variable names above, this function lets you use whichever names you want for the columns with a being the first column, b being the second column, etc.
 
@@ -112,7 +114,7 @@ FLRdf %>% select(everything())
 solarFlare("flrID","sourceLocation", "RegionNum", "classType")
 ```
 
-# `hazardousAsteroid`
+## `hazardousAsteroid`
 
 This function takes data from the Asteroids - NeoWs API and returns data about charted asteroids. This function allows you to find whichever summary statistic you want, whether it's the mean, median, standard deiation, etc., for the "absolute_magnitude_h" variable when "is_potentially_hazardous" equals true or false. 
 
@@ -138,7 +140,7 @@ return(Magnitude)
 hazardousAsteroid(mean)
 ```
 
-# `findName`
+## `findName`
 
 This function takes information from the Asteroids API. In this function you put in any name of the asteroid you want and it returns the asteriod's name, id, designation, and if it was hazardous.
 
@@ -161,7 +163,7 @@ Asteroid %>% filter(name_limited == x) %>% select(name_limited, id, designation,
 findName("Eros")
 ```
 
-# `fireballDate` 
+## `fireballDate` 
 
 This function grabs data from the Fireball API. This function then selects all the data from the "data" data set and allows the user to chose the earliest date it wants to look at to the most recent date. 
 
@@ -178,8 +180,10 @@ Fireball <-  parsedFireball$data
 colnames(Fireball) <- parsedFireball$fields
 #make the output into a tibble
 Fireball <- as_tibble(Fireball)
+#remove missing values
+fireballFix <- na.omit(Fireball)
 #select everything and filter by the date 
-Fireball %>% filter(date >= as.Date(x)) %>% select(everything())
+fireballFix %>% filter(date >= as.Date(x)) %>% select(everything())
 }
 
 #example
@@ -187,52 +191,142 @@ fireballDate("2020-01-01 12:00:00")
 ```
 
 
+
 # Exploratory Data Analysis
 
 This section takes some of the functions above and grabs data from them, so we can see some trends among the data.
 
-First, I'm going to pull information from the Coronal Mass Ejection endpoint using the `CME.Analysis` function to see the different latitude, longitude, and speed values of each type.
+First, I'm going to pull information from the Coronal Mass Ejection endpoint using the `cmeAnalysis` function to see the different latitude, longitude, and speed values of each type.
 
 ```{r}
-CME.Analysis("C")
-CME.Analysis("S")
+#saving these functions as new objects
+C <- cmeAnalysis("C")
+S <- cmeAnalysis("S")
 ```
 
 I am now going to create a numerical summary of speed for each type of coronal mass ejection
 
-Numerical Summery of speed when type = C
+__Numerical Summery of speed when type = C__
 ```{r}
-CME.Analysis("C") %>% summarise(avgSpeed = mean(speed), medSpeed = median(speed), sdSpeed = sd(speed))
+#take the object "C" and summerize the speeds based on different stats
+C %>% summarise(avgSpeed = mean(speed), medSpeed = median(speed), sdSpeed = sd(speed))
 ```
-Numerical Summary of speed when type = S
+__Numerical Summary of speed when type = S__
 ```{r}
-CME.Analysis("S") %>% summarise(avgSpeed = mean(speed), medSpeed = median(speed), sdSpeed = sd(speed))
+#take the object "S" and summerize the speeds based on different stats
+S %>% summarise(avgSpeed = mean(speed), medSpeed = median(speed), sdSpeed = sd(speed))
 ```
+
 From these two numerical summeries, we see that when the coronal mass ejecetion type is C, the average speed, median speed, and standard deviation of the speed are all greater than when the type is S.
 
 I am also going to create a boxplot for the type of coronal mass ejection vs. the speed of the coronal mass ejection.
 ```{r}
-g <- ggplot(CME.Analysis("C"), aes(x = type, y = speed))
-g + geom_boxplot(fill = "#6fa8dc") +
-  labs(title = "Speed When Type = C")
-g <- ggplot(CME.Analysis("S"), aes(x = type, y = speed))
-g + geom_boxplot(fill = "#ec008a") +
-  labs(title = "Speed When Type = S")
+#create basis of the plot with x and y variables
+gC <- ggplot(C, aes(x = type, y = speed))
+#add geom_boxplot to create boxplot and customize
+gC + geom_boxplot(fill = "#6fa8dc") +
+#add labels
+labs(title = "Coronal Mass Ejection Speed When Type = C")
+#create basis of the plot with x and y variables
+gS <- ggplot(S, aes(x = type, y = speed))
+#add geom_boxplot to create boxplot and customize
+gS + geom_boxplot(fill = "#ec008a") +
+#add labels
+labs(title = "Coronal Mass Ejection Speed When Type = S")
 ```
-These two box plots confirm what we saw in the numrical summaries with type C having a greater speed mean, median, and standard deviation. This plot also shows us that when the type is S, the interquartile range is greater than when the type is C.
+
+These two box plots confirm what we saw in the numerical summaries with type C having a greater speed mean, median, and standard deviation. This plot also shows us that when the type is S, the interquartile range is greater than when the type is C.
 
 
 Using the same CME analysis endpoint, in our `speedAnalysis` function, I created a new variable "speedPace". I am going to customize this variable to where speedPace = "High" when speed >= 500, speedPace = "Medium" when speed >= 400, and speedPace = "Low" for any speeds below those. Using this new variable, I am going to create a barplot of speedPace.
 ```{r}
-speedAnalysis <- Speed.Analysis(500, 400)
-g1 <- ggplot(speedAnalysis, aes(x = speedPace, fill = speedPace))
-g1 + geom_bar() + labs(x = "Categories of Speed", title = "Speed categories for Coronal Mass Ejections") +
+#save speed analysis function as new object with the new variable
+speedCat <- speedAnalysis(500, 400)
+#create basis of the plot with x and y variables
+g1 <- ggplot(speedCat, aes(x = speedPace, fill = speedPace))
+#add geom_bar to create a bar plot and customize
+g1 + geom_bar() + 
+#add labels  
+labs(x = "Categories of Speed", title = "Speed Categories for Coronal Mass Ejections") +
+#this part customizes the bar's colors and removes the legend
 scale_fill_manual(values = c("High" = "#ff8200", "Medium" = "#ec008a", "Low" =  "#6fa8dc")) + theme(legend.position = "none")
 
 ```
+
 In this bar plot, we see that most of the coronal mass ejections had a low speed that was below 400. Coronal mass ejections with medium speed were just below low speed, and the coronal mass ejections with a high speed over 500 were the smallest group.
 
+In addition to this bar plot I am also going to create a histogram of the coronal mass ejection's speed. 
+```{r}
+#create basis of the plot with x variable
+g2 <- ggplot(speedCat, aes(x = speed))
+#add geom_density to create a density plot and customize
+g2 + geom_density(adjust = 0.5, alpha = 0.5, color = "#6fa8dc", fill = "#ec008a") +
+#add labels
+labs(title = "Coronal Mass Ejection Speed Histogram")
+```
+
+In this histogram, we see that the data is skewed right. Because of this we know that the mean of the data is going to be bigger than the median due to the values of the ouliers being larger.
 
 
+Here we are going to take data from the Fireball API and use the function `fireballDate` to read in data from 01/01/2019 to the present. With that data I will then create a contingency table that records the amount of fireballs in the North, South, East, and West.
+```{r}
+#save function as new object
+fireball <- fireballDate("2019-01-01 12:00:00")
+
+#create a contingency table and put it in a kable format to mkae the output nicer
+knitr::kable(table(fireball$`lat-dir`, fireball$`lon-dir`), caption=paste("Counts of Fireballs in the North, South, East, and West"))
+```
+
+From this contingency table, we see that the area where the most fireballs occurred during the date we specified was the NW with 18, then the NE with 17. The SE location had just 13 while the SW only had 8 recorded fireballs. 
 
 
+With the fireball data, I am also going to create a new variable called "latLon" which combines the latitude direction with the longitude direction so that we can have an exact location of the fireball. 
+```{r}
+#create new variable
+fireballNew <- fireball %>% mutate(latLon = paste(`lat-dir`, `lon-dir`)) %>% select(everything())
+```
+
+With this new variable I am going to create a numerical summery of the energy of the fireball at NE, NW, SE, and SW.
+```{r}
+#use the new object and find summery stats grouped by "latLon"
+fireballNew %>% group_by(latLon) %>% summarise(minEnergy = min(energy), maxEnergy = max(energy), sdEnergy = sd(energy), iqrEnergy = IQR(energy)) 
+```
+
+In this numeric summary, we see that the SW location has the lowest minimum energy with 10.9 and the NW location has the highest minimum value with 13.7. The NE location has the lowest maximum energy with 7 and the NW has the highest maximum energy with 9.7. The NE location also has the largest standard deviation with 117.24 and the SW has the smallest range with the standard deviation being only 3.37. For interquartile range, the SW once again has the smallest with 4.8 while the NW has the largest with 9.3.
+
+Still focusing on the energy of recorded fireballs from 2019 to the present, I am going to create two scatterplots that show the relationship of the fireball's energy vs. its altitude and then a second one that compares the energy to the fireball's velocity. 
+```{r}
+#start basis of plot and change x and y variables to numeric while taking the log of energy
+g3 <- ggplot(fireballNew, aes(x = log(as.numeric(energy)), y = as.numeric(vel)))
+#add geom_point to create a scatter plot
+g3 + geom_point() + 
+#add geom_smooth to create a linear regression line
+geom_smooth(method = "lm", color = "#ec008a") + 
+#add labels
+labs(x = "energy", y = "velocity", title = "Fireball Energy vs. Fireball Velocity")
+#start basis of plot and change x and y variables to numeric while taking the log of energy
+g4 <- ggplot(fireballNew, aes(x = log(as.numeric(energy)), y = as.numeric(alt)))
+#add geom_point to create a scatter plot
+g4 + geom_point() + 
+#add geom_smooth to create a linear regression line
+geom_smooth(method = "lm", color = "#6fa8dc") + 
+#add labels
+labs(x = "energy", y = "altitude", title = "Fireball Energy vs. Fireball Altitude")
+
+```
+
+I ended up using the log of the energy values for both scatter plots because the original data was so sensitive to outliers that I could not really determine any trends. After reshaping the data that way, in the energy vs. velocity plot, I found a slightly negative relationship between the two variables. For the energy vs. altitude plot, I found basically the same information with the relationship being slightly negative. 
+
+Since the graphs were so similar when comparing the energy to either the velocity or altitude, I decided to look at the relationship between the fireball's altitude vs. its velocity by using another scatter plot. 
+```{r}
+#start basis of plot and change x and y variables to numeric
+g5 <- ggplot(fireballNew, aes(x = as.numeric(alt), y = as.numeric(vel)))
+#add geom_point to create a scatter plot
+g5 + geom_point() + 
+##add geom_smooth to create a linear regression line
+geom_smooth(method = "lm", color = "#ff8200") + 
+#add labels
+labs(x = "altitude", y = "velocity", title = "Fireball Altitude vs. Fireball Velocity")
+```
+
+In this scatter plot, I see a slightly positive relationship between altitude and velocity. 
